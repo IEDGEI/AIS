@@ -6,6 +6,9 @@ import uuid
 import pdfplumber # ⭐️ 1. 파싱 라이브러리 import
 from flask_sqlalchemy import SQLAlchemy # ⭐️ 2. DB 관리 라이브러리 import
 
+import json # ⭐️ 1. JSON 파싱을 위해 추가
+from google.oauth2 import service_account # ⭐️ 2. 서비스 계정 인증을 위해 추가
+
 # ----------------------------------------------------
 # 1. Flask 앱 및 DB 설정
 # ----------------------------------------------------
@@ -41,8 +44,26 @@ class PdfFile(db.Model):
 # ----------------------------------------------------
 # 5. GCS 및 헬퍼 함수
 # ----------------------------------------------------
+# app.py의 get_gcs_client 함수를 이 코드로 교체하세요.
+
 def get_gcs_client():
-    return storage.Client()
+    # 1. 환경 변수에서 JSON 문자열을 읽어옵니다.
+    credentials_json_string = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+    
+    if not credentials_json_string:
+        raise ValueError("GOOGLE_APPLICATION_CREDENTIALS 환경 변수가 설정되지 않았습니다.")
+    
+    # 2. JSON 문자열을 딕셔너리로 파싱합니다.
+    try:
+        credentials_info = json.loads(credentials_json_string)
+    except json.JSONDecodeError:
+        raise ValueError("GOOGLE_APPLICATION_CREDENTIALS 환경 변수 값(JSON)이 손상되었습니다. Render 대시보드에서 다시 복사/붙여넣기 하세요.")
+    
+    # 3. 파싱된 딕셔너리 정보로 인증서를 생성합니다.
+    credentials = service_account.Credentials.from_service_account_info(credentials_info)
+    
+    # 4. 인증서를 명시적으로 GCS 클라이언트에 전달합니다.
+    return storage.Client(credentials=credentials)
 
 def allowed_file(filename):
     return '.' in filename and \
