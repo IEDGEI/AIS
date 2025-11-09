@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: IR-APP-1
-    env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn app:app"
-    plan: free
-    region: oregon
-    autoDeploy: true
