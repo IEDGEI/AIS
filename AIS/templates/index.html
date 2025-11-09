@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PDF 업로드 및 목록</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 350px;
+            padding: 20px;
+            border-right: 1px solid #ccc;
+            height: 100vh;
+            background-color: #f8f8f8;
+        }
+
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+        }
+
+        .file-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .file-list li {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .file-list input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .file-list label {
+            display: contents;
+        }
+
+        /* ⭐️ 파일 이름이 1줄만 표시되고 줄임표(...)가 붙도록 하는 핵심 CSS ⭐️ */
+        .file-list a {
+            text-decoration: none;
+            color: #007bff;
+            display: block;
+            padding: 5px;
+            border-radius: 4px;
+            background-color: #e9ecef;
+            flex-grow: 1;
+            /* 1줄 표시를 위한 3가지 속성 */
+            white-space: nowrap;
+            /* 줄바꿈 금지 */
+            overflow: hidden;
+            /* 영역을 벗어나는 내용 숨김 */
+            text-overflow: ellipsis;
+            /* 숨겨진 내용 대신 ... 표시 */
+        }
+
+        .file-list a:hover {
+            background-color: #d1d6db;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .success {
+            color: blue;
+        }
+
+        .delete-button {
+            margin-top: 15px;
+            padding: 8px;
+            width: 100%;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .delete-button:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h3>업로드된 PDF 파일 ({{ files|length }}개)</h3>
+
+        <form id="file-form" action="/delete-files" method="POST">
+            <ul class="file-list">
+                {% for file in files %}
+                <li>
+                    <input type="checkbox" name="selected_files" value="{{ file.gcs_path }}" id="file-{{ loop.index }}">
+
+                    <label for="file-{{ loop.index }}">
+                        <a href="{{ file.url }}" target="_blank" title="{{ file.url }}">
+                            {{ file.name }}
+                        </a>
+                    </label>
+                </li>
+                {% else %}
+                <li>업로드된 파일이 없습니다.</li>
+                {% endfor %}
+            </ul>
+
+            {% if files %}
+            <button type="submit" class="delete-button" onclick="return confirm('선택한 파일을 정말로 삭제하시겠습니까?');">
+                선택 항목 삭제
+            </button>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="{{ category }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="search-container" style="margin-bottom: 20px;">
+            <h2>PDF 내용 검색</h2>
+            <form action="/" method="GET">
+                <input type="text" name="query" placeholder="파싱된 텍스트 검색..." value="{{ search_query or '' }}"
+                    style="width: 70%; padding: 8px;">
+                <button type="submit">검색</button>
+                {% if search_query %}
+                <a href="/">검색 초기화</a>
+                {% endif %}
+            </form>
+        </div>
+        <h2>PDF 파일 업로드</h2>
+        <form action="/upload" method="POST" enctype="multipart-form-data">
+            <input type="file" name="pdfFile" accept=".pdf" required>
+            <button type="submit">업로드</button>
+        </form>
+    </div>
+</body>
+
+</html>

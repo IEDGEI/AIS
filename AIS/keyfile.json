@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "kinetic-magnet-477416-j3",
+  "private_key_id": "26c64136cac0113cce9d891d0debd902ecef2f58",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDOpHkoqTMXYZle\nJenvTzDqdW+7ubR5pCrpeS0R6p24AQc8WtUQlwnKnfNkIgN7AD70wv/eOlTXkDo4\nlO+6x+qG/xG3p5/Vm7NEcOsOGy/VHNgk0/isZAJrkkk3DfMqdtyirOCIljYcekx8\nxxkj4Ki3ZJE1Q3eNMIxGHUhfbzmWF9LF50/AEAhghmTS4qqScMZXOCcEb+3Vfqnv\n1ukRJO7qlGwsVLu05FMmhd2N4X23fGWdnHht4KegrTMBVg1zqh6GDMMO7jBU/D2K\nbjP7T0HNE9NuIxAsLRThaVw3tiVUEz+nNzAH9KywR76o9r7oZhnN8G99s/VZ3t6R\nDBkM71I9AgMBAAECggEAL956gbCWeRFfK6fpRgpoiLu9LzXhCLe+yBiN2ANrV2OH\nl1PsXRw8BK+r4ROfDkibjOw6RTLqkggjcJWR5kkm+3BNnKeMV3mq4M0uqnUiUsJM\nkNV42wiM5fn8k3AcF0dzK40UM5fmf5jWLKabnIvP0bIOkFHpeS/YoupoKFF1+95s\n3I9M058mNZvFAr639PUqyCT1bEF2Z1V1ZZnAX5VQjMc5EazHJ52z050Jjyc5SiLK\nZHs0bpWVM6jSKH6cwdhNhXXvLhecWiw2viGvXYHg3O+mxHBbt8ebFBOPy57TqW2Q\nASd48XPa0eDT2LlVZQRZIlcnJvK4btpWIqVPzXn8eQKBgQDqeV/V4TFfe7TroDgH\nJpcHzddKMCmhH9jZhGBTTgmYYa/rM8ZELD4SZ1Bid8HJo8V79vbPvI9TU9NvUeEV\n26CT43BnZ+Vpx6tiS36QMcRQYwosytbq9jyEeN07m0D8VDAo3dP+Cjt+S27e78Im\n4tAeEhVYlxt4Sy75drtgS1rTaQKBgQDhnP9x9qVl5koznpCboL7kI33y9AUZQwHS\n6harDbtvdKpzBOCFoeuJfW91hu2edjs/ecqm9q5D+kIqn+0kEa5nHUsmmU7BWoeQ\nRArZ+bS4wFwr/gTcgIvCVsWnzDsZK4GVZwRik7emjRYwqFxzQYgaYuorMnYmfB1v\n6w4lUuLxtQKBgEzRTPuGVqWgospbaF+3Xd25q2Hr24elJmdE/kXsmCorPvZAtSEa\nmY9v9576+yszk3ykkYHHlfFH0kpzOdnuZXJuHiJSoI+CUfzXHPTiyR1JBUldfwHl\ngDgqXNitaaIBdvG8kzp0Yb9juUQiqqoQvvxLEmE+yEol35LtOkA3D9+ZAoGBAJU6\nFuv2TCg+Tk4eT1/gzuJvZ1tPdB/lZktvclbp2lQ6QpOZYjiBhR2HzjVabckmQsIV\neKk++L0VxrYS2fPFjim+AnshZCoYCxqtJtBOje61rUGb3vNKQybj5hC60UwwrqF3\nZjsdoZeUMl00vxGtAq0RR/oSgnuqFH52ZwDg9iMRAoGAFlXs1ohdK2vTAfpKAZYX\nWK7PT1/jUWKQY8FAjWgkKJOAgTXZL3yMkn8NPnS+n6auHHcVAYG+hHVMFaOsVBc2\nb1E7Cf8K+bsSs+lZs0SazwEhaKZo11wEEc6HOMk1+gO7bJfCCozFbbiO+UPr5JBG\ncPtwMXoFR+9+Im3Y9Rqud+g=\n-----END PRIVATE KEY-----\n",
+  "client_email": "ais-1106@kinetic-magnet-477416-j3.iam.gserviceaccount.com",
+  "client_id": "106823048028840552159",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/ais-1106%40kinetic-magnet-477416-j3.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
