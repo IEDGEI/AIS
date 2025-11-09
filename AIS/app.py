@@ -79,7 +79,7 @@ def allowed_file(filename):
 # ⭐️ [수정됨] index: GCS가 아닌 DB에서 목록을 가져옴
 @app.route('/')
 def index():
-    # 1. HTML 폼에서 'query'라는 이름으로 보낸 검색어를 받습니다.
+    # 1. 템플릿(HTML)에서 'query'라는 이름으로 보낸 검색어를 받습니다.
     search_query = request.args.get('query') 
     
     file_list = []
@@ -91,11 +91,13 @@ def index():
         # 3. 만약 검색어(search_query)가 있다면, FTS 쿼리를 추가합니다.
         if search_query:
             flash(f"'{search_query}'에 대한 검색 결과입니다.", 'success')
-            # ⭐️ PostgreSQL의 전문 검색(FTS) 실행 ⭐️
-            # 'english' 언어 기준으로 텍스트를 검색합니다.
+            
+            # ⭐️ [수정됨] 
+            # 1. 'english' -> 'simple': 'simple'은 한글을 포함한 모든 언어를 공백 기준으로 분리합니다.
+            # 2. .match() 구문 수정: SQLAlchemy에 맞는 올바른 FTS 구문으로 변경합니다.
             query_builder = query_builder.filter(
-                func.to_tsvector('english', PdfFile.parsed_text)
-                .match(func.to_tsquery('english', search_query))
+                func.to_tsvector('simple', PdfFile.parsed_text)
+                .match(search_query, postgresql_regconfig='simple')
             )
             
         # 4. 최종 쿼리를 실행하여 DB에서 파일 목록을 가져옵니다.
@@ -115,9 +117,11 @@ def index():
             })
             
     except Exception as e:
+        # ⭐️ 오류가 발생하면, 여기에 걸리게 됩니다.
         flash(f"DB 연결 또는 검색 오류: {e}", "error")
+        # file_list는 [] (빈 리스트)로 유지됩니다.
         
-    # 6. 검색어를 템플릿으로 다시 보내서, 검색창에 검색어가 남아있도록 합니다.
+    # 6. 검색어를 템플릿으로 다시 보냅니다.
     return render_template('index.html', files=file_list, search_query=search_query)
 
 # ⭐️ [수정됨] upload: 파싱 기능 추가 및 DB 저장
