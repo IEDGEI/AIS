@@ -4,10 +4,13 @@ from google.cloud import storage
 from datetime import datetime
 import uuid
 import pdfplumber # ⭐️ 1. 파싱 라이브러리 import
-from flask_sqlalchemy import SQLAlchemy # ⭐️ 2. DB 관리 라이브러리 import
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.sql import func # ⭐️ PostgreSQL 함수(FTS)를 사용하기 위해 추가
 
 import json # ⭐️ 1. JSON 파싱을 위해 추가
 from google.oauth2 import service_account # ⭐️ 2. 서비스 계정 인증을 위해 추가
+
+
 
 # ----------------------------------------------------
 # 1. Flask 앱 및 DB 설정
@@ -76,14 +79,30 @@ def allowed_file(filename):
 # ⭐️ [수정됨] index: GCS가 아닌 DB에서 목록을 가져옴
 @app.route('/')
 def index():
+    # 1. HTML 폼에서 'query'라는 이름으로 보낸 검색어를 받습니다.
+    search_query = request.args.get('query') 
+    
+    file_list = []
+    
     try:
-        # DB에서 모든 파일 목록을 최신순으로 정렬하여 가져옵니다.
-        files_from_db = PdfFile.query.order_by(PdfFile.uploaded_at.desc()).all()
+        # 2. DB에서 기본 쿼리를 준비합니다. (최신순 정렬)
+        query_builder = PdfFile.query.order_by(PdfFile.uploaded_at.desc())
         
-        # HTML 템플릿에 맞게 데이터 가공
-        file_list = []
+        # 3. 만약 검색어(search_query)가 있다면, FTS 쿼리를 추가합니다.
+        if search_query:
+            flash(f"'{search_query}'에 대한 검색 결과입니다.", 'success')
+            # ⭐️ PostgreSQL의 전문 검색(FTS) 실행 ⭐️
+            # 'english' 언어 기준으로 텍스트를 검색합니다.
+            query_builder = query_builder.filter(
+                func.to_tsvector('english', PdfFile.parsed_text)
+                .match(func.to_tsquery('english', search_query))
+            )
+            
+        # 4. 최종 쿼리를 실행하여 DB에서 파일 목록을 가져옵니다.
+        files_from_db = query_builder.all()
+        
+        # 5. HTML 템플릿에 맞게 데이터 가공 (기존과 동일)
         for file_db in files_from_db:
-            # 원본 이름에서 접두사 제거 로직 (기존 로직 유지)
             if '_' in file_db.original_name:
                 display_name = file_db.original_name.split('_', 1)[-1]
             else:
@@ -92,14 +111,14 @@ def index():
             file_list.append({
                 'name': display_name,
                 'url': file_db.gcs_url,
-                'gcs_path': file_db.gcs_path # 삭제 시 사용할 경로
+                'gcs_path': file_db.gcs_path
             })
             
     except Exception as e:
-        flash(f"DB 연결 또는 목록 로드 오류: {e}", "error")
-        file_list = []
+        flash(f"DB 연결 또는 검색 오류: {e}", "error")
         
-    return render_template('index.html', files=file_list)
+    # 6. 검색어를 템플릿으로 다시 보내서, 검색창에 검색어가 남아있도록 합니다.
+    return render_template('index.html', files=file_list, search_query=search_query)
 
 # ⭐️ [수정됨] upload: 파싱 기능 추가 및 DB 저장
 @app.route('/upload', methods=['POST'])
