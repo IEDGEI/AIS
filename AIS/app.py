@@ -1,64 +1,201 @@
 import os
 from flask import Flask, request, redirect, render_template, flash, url_for
-from werkzeug.utils import secure_filename
+from google.cloud import storage 
+from datetime import datetime
+import uuid
+import pdfplumber # ⭐️ 1. 파싱 라이브러리 import
+from flask_sqlalchemy import SQLAlchemy # ⭐️ 2. DB 관리 라이브러리 import
 
-# 1. 업로드 폴더 및 허용 확장자 설정
-# (경고: 이 'uploads' 폴더는 Render에서 재시작 시 초기화됩니다!)
-UPLOAD_FOLDER = 'uploads' 
+# ----------------------------------------------------
+# 1. Flask 앱 및 DB 설정
+# ----------------------------------------------------
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your-very-secret-key'
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
+
+# ⭐️ GCS 설정
+GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME") 
 ALLOWED_EXTENSIONS = {'pdf'}
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 # 10MB 제한
-app.config['SECRET_KEY'] = 'your-very-secret-key' # flash 메시지를 위한 시크릿 키
+# ⭐️ DB 설정: Render에서 제공하는 DATABASE_URL 환경 변수를 읽어옵니다.
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# 업로드 폴더가 없으면 생성
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+db = SQLAlchemy(app) # ⭐️ 3. Flask 앱에 DB를 연결
 
-# 허용된 파일 확장자인지 확인
+# ----------------------------------------------------
+# ⭐️ 4. 데이터베이스 모델(테이블) 정의 ⭐️
+# ----------------------------------------------------
+class PdfFile(db.Model):
+    # 이 구조대로 DB에 테이블이 생성됩니다.
+    id = db.Column(db.Integer, primary_key=True)
+    original_name = db.Column(db.String(500), nullable=False) # 원본 파일명
+    gcs_path = db.Column(db.String(1024), unique=True, nullable=False) # GCS 저장 경로
+    gcs_url = db.Column(db.String(1024), nullable=False) # GCS 공개 URL
+    parsed_text = db.Column(db.Text, nullable=True) # ⭐️ PDF에서 파싱한 텍스트
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<PdfFile {self.original_name}>'
+
+# ----------------------------------------------------
+# 5. GCS 및 헬퍼 함수
+# ----------------------------------------------------
+def get_gcs_client():
+    return storage.Client()
+
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# 루트 경로: 'index.html' 템플릿을 보여줌
+# ----------------------------------------------------
+# 6. 라우트(Routes) 정의
+# ----------------------------------------------------
+
+# ⭐️ [수정됨] index: GCS가 아닌 DB에서 목록을 가져옴
 @app.route('/')
 def index():
-    return render_template('index.html')
+    try:
+        # DB에서 모든 파일 목록을 최신순으로 정렬하여 가져옵니다.
+        files_from_db = PdfFile.query.order_by(PdfFile.uploaded_at.desc()).all()
+        
+        # HTML 템플릿에 맞게 데이터 가공
+        file_list = []
+        for file_db in files_from_db:
+            # 원본 이름에서 접두사 제거 로직 (기존 로직 유지)
+            if '_' in file_db.original_name:
+                display_name = file_db.original_name.split('_', 1)[-1]
+            else:
+                display_name = file_db.original_name
+                
+            file_list.append({
+                'name': display_name,
+                'url': file_db.gcs_url,
+                'gcs_path': file_db.gcs_path # 삭제 시 사용할 경로
+            })
+            
+    except Exception as e:
+        flash(f"DB 연결 또는 목록 로드 오류: {e}", "error")
+        file_list = []
+        
+    return render_template('index.html', files=file_list)
 
-# '/upload' 경로로 파일이 POST될 때 처리
+# ⭐️ [수정됨] upload: 파싱 기능 추가 및 DB 저장
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'pdfFile' not in request.files:
         flash('파일 부분이 없습니다.', 'error')
         return redirect(url_for('index'))
     
-    file = request.files['pdfFile']
+    file = request.files['pdfFile'] 
     
     if file.filename == '':
         flash('선택된 파일이 없습니다.', 'error')
         return redirect(url_for('index'))
     
     if file and allowed_file(file.filename):
-        # 파일 이름 보안 처리
-        filename = secure_filename(file.filename)
-        # 3. 파일 저장 경로 (
-        save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        try:
+            original_filename = file.filename
+            
+            # ⭐️ 1. PDF 파싱 수행 (고급 기능) ⭐️
+            parsed_text = ""
+            file.stream.seek(0) # 스트림을 처음으로 되돌림
+            try:
+                # pdfplumber로 파일 스트림을 엽니다.
+                with pdfplumber.open(file.stream) as pdf:
+                    for page in pdf.pages:
+                        # 각 페이지의 텍스트를 추출하여 parsed_text 변수에 추가
+                        parsed_text += page.extract_text() or "" 
+            except Exception as parse_error:
+                print(f"파싱 오류 발생 (파일은 저장됨): {parse_error}")
+                parsed_text = "파싱 실패"
+            
+            # ⭐️ 2. GCS에 파일 업로드 ⭐️
+            file.stream.seek(0) # GCS 업로드를 위해 다시 스트림 되돌림
+            gcs_client = get_gcs_client()
+            bucket = gcs_client.bucket(GCS_BUCKET_NAME)
+            
+            unique_id = uuid.uuid4().hex  
+            date_path = datetime.now().strftime('%Y%m%d')
+            unique_filename = f"pdf/{date_path}/{unique_id}-{original_filename}"
+            
+            blob = bucket.blob(unique_filename)
+            blob.upload_from_file(file.stream, content_type='application/pdf')
+            gcs_file_url = f"https.storage.googleapis.com/{GCS_BUCKET_NAME}/{unique_filename}"
+
+            # ⭐️ 3. DB에 정보 저장 ⭐️
+            new_file_entry = PdfFile(
+                original_name=original_filename,
+                gcs_path=unique_filename,
+                gcs_url=gcs_file_url,
+                parsed_text=parsed_text # 파싱된 텍스트를 DB에 저장
+            )
+            db.session.add(new_file_entry)
+            db.session.commit()
+            
+            flash(f'파일 업로드 및 파싱 성공! (GCS 저장됨)', 'success')
+            
+        except Exception as e:
+            db.session.rollback() # 오류 발생 시 DB 롤백
+            flash(f'업로드 오류 발생: {e}', 'error')
         
-        # *** 중요 ***
-        # Render에서 이 코드는 파일을 '임시'로만 저장합니다.
-        # 서버가 재시작되면 'save_path'에 저장된 파일은 사라집니다.
-        # 영구 저장을 위해서는 AWS S3 등을 사용해야 합니다.
-        file.save(save_path)
-        
-        flash(f'파일 업로드 성공! (임시 저장됨: {filename})', 'success')
         return redirect(url_for('index'))
-        
+            
     else:
         flash('PDF 파일만 업로드 가능합니다.', 'error')
         return redirect(url_for('index'))
 
+# ⭐️ [수정됨] delete: GCS 삭제 및 DB 삭제
+@app.route('/delete-files', methods=['POST'])
+def delete_files():
+    selected_files_paths = request.form.getlist('selected_files')
+    
+    if not selected_files_paths:
+        flash('삭제할 파일을 선택하지 않았습니다.', 'error')
+        return redirect(url_for('index'))
+        
+    delete_count = 0
+    
+    try:
+        gcs_client = get_gcs_client()
+        bucket = gcs_client.bucket(GCS_BUCKET_NAME)
+        
+        for file_path in selected_files_paths:
+            # 1. GCS에서 삭제
+            blob = bucket.blob(file_path)
+            blob.delete()
+            
+            # 2. DB에서 삭제
+            file_to_delete = PdfFile.query.filter_by(gcs_path=file_path).first()
+            if file_to_delete:
+                db.session.delete(file_to_delete)
+            
+            delete_count += 1
+            
+        db.session.commit() # 모든 삭제가 완료된 후 DB 커밋
+        flash(f'{delete_count}개의 파일이 GCS 및 DB에서 성공적으로 삭제되었습니다.', 'success')
+        
+    except Exception as e:
+        db.session.rollback() # 오류 발생 시 롤백
+        flash(f'파일 삭제 중 오류 발생: {e}', 'error')
+        
+    return redirect(url_for('index'))
+
+# ----------------------------------------------------
+# 7. 서버 실행 (DB 초기화 포함)
+# ----------------------------------------------------
 if __name__ == '__main__':
-    # Render는 PORT 환경 변수를 사용
+    if GCS_BUCKET_NAME is None:
+        print("🚨 오류: GCS_BUCKET_NAME 환경 변수를 설정해야 합니다.")
+        exit(1)
+    if os.environ.get('DATABASE_URL') is None:
+        print("🚨 오류: DATABASE_URL 환경 변수를 설정해야 합니다.")
+        exit(1)
+        
+    # ⭐️ 앱 실행 전 DB 테이블 생성 ⭐️
+    # PdfFile 모델을 기반으로 DB에 테이블이 없으면 생성합니다.
+    with app.app_context():
+        db.create_all()
+        
     port = int(os.environ.get('PORT', 5000))
-    # Render에서 외부 접속을 허용하기 위해 '0.0.0.0' 사용
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=True)
