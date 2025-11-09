@@ -1,3 +1,5 @@
+<<<<<<< HEAD
+=======
 import os
 import json
 import uuid
@@ -241,3 +243,4 @@ if __name__ == '__main__':
         
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+>>>>>>> 32ca39bb0bdde42913058054ba7e5cb36e427910
